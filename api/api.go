@@ -31,9 +31,14 @@ type npmPackageResponse struct {
 type NpmPackageVersion struct {
 	Name         string                        `json:"name"`
 	Version      string                        `json:"version"`
+	// review: Good change to support nested dependencies, but consider adding a depth field to track nesting level
+	// review: Consider adding a visited map to detect circular dependencies
 	Dependencies map[string]*NpmPackageVersion `json:"dependencies"`
 }
 
+// review: Consider using a context.Context parameter for HTTP requests to handle timeouts and cancellations
+// review: Missing proper error handling for HTTP response status codes (e.g., 404, 500)
+// review: Consider adding request rate limiting to prevent abuse of npm registry
 func packageHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	pkgName := vars["package"]
@@ -60,6 +65,11 @@ func packageHandler(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(stringified)
 }
 
+// review: Good refactoring to separate dependency resolution logic
+// review: However, this recursive implementation needs protection against:
+// review: 1. Circular dependencies that could cause infinite recursion
+// review: 2. Excessive depth that could cause stack overflow
+// review: 3. Duplicate work when the same package version is requested multiple times
 func resolveDependencies(pkg *NpmPackageVersion, versionConstraint string) error {
 	pkgMeta, err := fetchPackageMeta(pkg.Name)
 	if err != nil {
@@ -112,6 +122,9 @@ func filterCompatibleVersions(constraint *semver.Constraints, pkgMeta *npmPackag
 	return compatible
 }
 
+// review: Error from json.Unmarshal is being silently ignored
+// review: Missing validation of HTTP response status code
+// review: Consider adding retry mechanism for transient network failures
 func fetchPackage(name, version string) (*npmPackageResponse, error) {
 	resp, err := http.Get(fmt.Sprintf("https://registry.npmjs.org/%s/%s", name, version))
 	if err != nil {
@@ -129,6 +142,9 @@ func fetchPackage(name, version string) (*npmPackageResponse, error) {
 	return &parsed, nil
 }
 
+// review: Consider adding input validation for package name to prevent potential security issues
+// review: Missing proper error handling for non-200 HTTP status codes
+// review: The HTTP client should have proper timeouts configured
 func fetchPackageMeta(p string) (*npmPackageMetaResponse, error) {
 	resp, err := http.Get(fmt.Sprintf("https://registry.npmjs.org/%s", p))
 	if err != nil {

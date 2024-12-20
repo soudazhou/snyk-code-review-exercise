@@ -14,6 +14,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// review: Good move to use fixture-based testing for complex dependency trees
+// review: However, test coverage could be improved:
+// review: 1. Add test case for package with circular dependencies
+// review: 2. Add test for deeply nested dependencies to verify stack safety
+// review: 3. Add test for package versions that don't exist
 func TestPackageHandler(t *testing.T) {
 	handler := api.New()
 	server := httptest.NewServer(handler)
