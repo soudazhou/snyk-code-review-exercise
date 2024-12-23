@@ -29,11 +29,36 @@ type npmPackageResponse struct {
 }
 
 type NpmPackageVersion struct {
-	Name         string                        `json:"name"`
-	Version      string                        `json:"version"`
+	Name    string `json:"name"`
+	Version string `json:"version"`
+	// review: Tree view JSON output implemented
+	// review: Async fetching of dependencies via HTTP
+	// review: - Consider adding a visited map to detect circular dependencies
+	// review: - Consider adding caching to minimize latency for repeated requests
+	// review: - Add proper error handling for non-existent packages and invalid versions
 	Dependencies map[string]*NpmPackageVersion `json:"dependencies"`
 }
 
+// review: Areas for improvement:
+// review: 1. Performance:
+//   - Add caching for repeated requests
+//   - Consider request batching for multiple dependencies
+//   - Add request timeouts and circuit breakers
+//
+// review: 2. Error Handling:
+//   - Add validation for package names and versions
+//   - Handle HTTP errors (404, 500) with meaningful messages
+//   - Add retry mechanism for transient failures
+//
+// review: 3. Testing:
+//   - Add integration tests for error cases
+//   - Add performance benchmarks
+//   - Test caching behavior
+//
+// review: 4. Security:
+//   - Add rate limiting to prevent abuse
+//   - Validate input to prevent injection
+//   - Add timeouts to prevent DoS
 func packageHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	pkgName := vars["package"]
@@ -60,6 +85,11 @@ func packageHandler(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(stringified)
 }
 
+// review: Good refactoring to separate dependency resolution logic
+// review: However, this recursive implementation needs protection against:
+// review: 1. Circular dependencies that could cause infinite recursion
+// review: 2. Excessive depth that could cause stack overflow
+// review: 3. Duplicate work when the same package version is requested multiple times
 func resolveDependencies(pkg *NpmPackageVersion, versionConstraint string) error {
 	pkgMeta, err := fetchPackageMeta(pkg.Name)
 	if err != nil {
@@ -112,6 +142,9 @@ func filterCompatibleVersions(constraint *semver.Constraints, pkgMeta *npmPackag
 	return compatible
 }
 
+// review: Error from json.Unmarshal is being silently ignored
+// review: Missing validation of HTTP response status code
+// review: Consider adding retry mechanism for transient network failures
 func fetchPackage(name, version string) (*npmPackageResponse, error) {
 	resp, err := http.Get(fmt.Sprintf("https://registry.npmjs.org/%s/%s", name, version))
 	if err != nil {
@@ -129,6 +162,9 @@ func fetchPackage(name, version string) (*npmPackageResponse, error) {
 	return &parsed, nil
 }
 
+// review: Consider adding input validation for package name to prevent potential security issues
+// review: Missing proper error handling for non-200 HTTP status codes
+// review: The HTTP client should have proper timeouts configured
 func fetchPackageMeta(p string) (*npmPackageMetaResponse, error) {
 	resp, err := http.Get(fmt.Sprintf("https://registry.npmjs.org/%s", p))
 	if err != nil {
